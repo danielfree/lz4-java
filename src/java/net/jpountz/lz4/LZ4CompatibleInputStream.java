@@ -141,32 +141,37 @@ public final class LZ4CompatibleInputStream extends FilterInputStream {
     // All our output buffer has been read, so we can discard it.
     outputOffset = 0;
     outputAvailable = 0;
-    
+    int offset = 0;
     // Keep reading while there is still some left, and we haven't filled our buffer
     while (outputAvailable < outputBuffer.length && inputAvailable != -1) {
 
       if (inputOffset == inputAvailable) {
         // We've read everything, slurp in a new page
-        inputAvailable = in.read(inputBuffer, 0, inputBuffer.length - inputOffset);
         inputOffset = 0;
-        
+        inputAvailable = in.read(inputBuffer, 0, inputBuffer.length - inputOffset);
+
         if (inputAvailable == -1) {
           // Couldn't read any more? Means we're done!
           return;
         }
       }
-      
+//      System.out.println("inputOffset/inputAvailable/outputOffset: "+inputOffset+"/"+inputAvailable+"/"
+//      +outputOffset);
       int result = LZ4JNI.LZ4F_decompress(lz4fContext, 
           inputBuffer, inputOffset, inputAvailable - inputOffset, 
-          outputBuffer, outputOffset, outputBuffer.length - outputOffset, 
+          outputBuffer, outputOffset+offset, outputBuffer.length - outputOffset-offset,
           error);
       error.check();
-      
+//      System.out.println("result: "+result);
+
       // If result >= 0, it's the number of bytes written (and the source has been exhausted)
       if (result >= 0) {
         // All input got read before filling the output buffer. Ok, next!
         outputAvailable += result;
+        offset += result;
         inputOffset = inputAvailable;
+//        System.out.println("decompress result: "+result+"\toutputAvailable: "+outputAvailable + "\toutputOffset: "
+//            + outputOffset);
       } else {
         // Else, it's the number of bytes read (and the destination is full)
         // The destination buffer is ready!

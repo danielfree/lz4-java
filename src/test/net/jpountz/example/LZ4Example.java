@@ -14,8 +14,14 @@ package net.jpountz.example;
  * limitations under the License.
  */
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 
+import net.jpountz.lz4.LZ4CompatibleInputStream;
+import net.jpountz.lz4.LZ4CompatibleOutputStream;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FastDecompressor;
@@ -51,6 +57,45 @@ public class LZ4Example {
     LZ4SafeDecompressor decompressor2 = factory.safeDecompressor();
     int decompressedLength2 = decompressor2.decompress(compressed, 0, compressedLength, restored, 0);
     // decompressedLength == decompressedLength2
+
+    File inputFile = new File("/Users/Daniel/Desktop/js.txt");
+    File outputFile = new File("/Users/Daniel/Desktop/js-lz4.txt");
+    try {
+      FileInputStream inputStream = new FileInputStream(inputFile);
+      FileOutputStream outputStream = new FileOutputStream(outputFile);
+      LZ4CompatibleOutputStream lz4CompatibleOutputStream = new LZ4CompatibleOutputStream(outputStream);
+      byte[] buffer = new byte[64*1024];
+      while (inputStream.available() > 0) {
+        int read = inputStream.read(buffer);
+        lz4CompatibleOutputStream.write(buffer,0, read);
+      }
+      inputStream.close();
+      lz4CompatibleOutputStream.close();
+
+
+      System.out.println("compress complete, now start to decompress...");
+
+
+      inputStream = new FileInputStream(outputFile);
+      File decompressFile = new File("/Users/Daniel/Desktop/js-decompress.txt");
+      outputStream = new FileOutputStream(decompressFile);
+      LZ4CompatibleInputStream lz4CompatibleInputStream = new LZ4CompatibleInputStream(inputStream);
+      buffer = new byte[5*1024];
+      int read = lz4CompatibleInputStream.read(buffer, 0, buffer.length);
+      outputStream.write(buffer,0, read);
+      buffer = new byte[64*1024];
+      read = lz4CompatibleInputStream.read(buffer, 0, buffer.length);
+      while ( read != -1) {
+        outputStream.write(buffer, 0, read);
+        read = lz4CompatibleInputStream.read(buffer, 0, buffer.length);
+      }
+      lz4CompatibleInputStream.close();
+      outputStream.close();
+      System.out.println("decompress complete");
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
   }
 
 }
