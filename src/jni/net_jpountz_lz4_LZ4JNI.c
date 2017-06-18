@@ -47,6 +47,8 @@ void returnError(JNIEnv* env, jobject errorResult, LZ4F_errorCode_t errorCode) {
 
   // And set it into the error result
   (*env)->SetObjectField(env, errorResult, fid, message);
+  (*env)->DeleteLocalRef(env, errorClass);
+  (*env)->DeleteLocalRef(env, errorResult);
 }
 
 jlong dContextToLong(LZ4F_decompressionContext_t context) {
@@ -86,8 +88,12 @@ JNIEXPORT void JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1freeDecompressionContex
 }
 
 JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1decompress(JNIEnv* env, jclass cls, jlong readable_context, jbyteArray srcBuffer, jint srcOffset, jint srcSize, jbyteArray dstBuffer, jint dstOffset, jint dstSize, jobject errorResult) {
-  void* availableDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0) + dstOffset;
-  void* availableSrcBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, srcBuffer, 0) + srcOffset;
+  void* tmpDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0);
+  void* tmpSrcBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, srcBuffer, 0);
+  void* availableDstBuffer = tmpDstBuffer + dstOffset;
+  void* availableSrcBuffer = tmpSrcBuffer + srcOffset;
+  (*env)->ReleasePrimitiveArrayCritical(env, dstBuffer, tmpDstBuffer, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, srcBuffer, tmpSrcBuffer, 0);
   LZ4F_decompressOptions_t options;
   size_t total_written = 0;
   size_t total_read = 0;
@@ -126,7 +132,9 @@ JNIEXPORT void JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1freeCompressionContext(
 }
 
 JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1compressBegin(JNIEnv *env, jclass cls, jlong readable_context, jint compressionLevel, jbyteArray dstBuffer, jint dstOffset, jint dstSize, jobject errorResult) {
-  void* availableDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0) + dstOffset;
+  void* tmpBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0);
+  void* availableDstBuffer = tmpBuffer  + dstOffset;
+  (*env)->ReleasePrimitiveArrayCritical(env, dstBuffer, tmpBuffer,0);
   LZ4F_preferences_t prefs = lz4_preferences;
   prefs.compressionLevel = compressionLevel;
   size_t result = LZ4F_compressBegin(longToCContext(readable_context), availableDstBuffer, dstSize, &prefs);
@@ -142,9 +150,17 @@ JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1compressBound(JNIEnv* e
 }
 
 JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1compressUpdate(JNIEnv *env, jclass cls, jlong readable_context, jbyteArray srcBuffer, jint srcOffset, jint srcSize, jbyteArray dstBuffer, jint dstOffset, jint dstSize, jobject errorResult) {
-  void* availableDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0) + dstOffset;
-  void* availableSrcBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, srcBuffer, 0) + srcOffset;
+  void* tmpDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0);
+  void* tmpSrcBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, srcBuffer, 0);
+
+  void* availableDstBuffer = tmpDstBuffer + dstOffset;
+  void* availableSrcBuffer = tmpSrcBuffer + srcOffset;
+
+  (*env)->ReleasePrimitiveArrayCritical(env, dstBuffer, tmpDstBuffer, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, srcBuffer, tmpSrcBuffer, 0);
+
   size_t result = LZ4F_compressUpdate(longToCContext(readable_context), availableDstBuffer, dstSize, availableSrcBuffer, srcSize, NULL);
+
   if (LZ4F_isError(result)) {
     returnError(env, errorResult, result);
     return 0;
@@ -153,7 +169,10 @@ JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1compressUpdate(JNIEnv *
 }
 
 JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1compressEnd(JNIEnv *env, jclass cls, jlong readable_context, jbyteArray dstBuffer, jint dstOffset, jint dstSize, jobject errorResult) {
-  void* availableDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0) + dstOffset;
+  void* tmpDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0);
+  void* availableDstBuffer = tmpDstBuffer + dstOffset;
+  (*env)->ReleasePrimitiveArrayCritical(env, dstBuffer, tmpDstBuffer, 0);
+
   size_t result = LZ4F_compressEnd(longToCContext(readable_context), availableDstBuffer, dstSize, NULL);
   if (LZ4F_isError(result)) {
     returnError(env, errorResult, result);
@@ -163,7 +182,10 @@ JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1compressEnd(JNIEnv *env
 }
 
 JNIEXPORT jint JNICALL Java_net_jpountz_lz4_LZ4JNI_LZ4F_1compressFlush(JNIEnv *env, jclass cls, jlong readable_context, jbyteArray dstBuffer, jint dstOffset, jint dstSize, jobject errorResult) {
-  void* availableDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0) + dstOffset;
+  void* tmpDstBuffer = (void*) (*env)->GetPrimitiveArrayCritical(env, dstBuffer, 0);
+  void* availableDstBuffer = tmpDstBuffer + dstOffset;
+  (*env)->ReleasePrimitiveArrayCritical(env, dstBuffer, tmpDstBuffer, 0);
+
   size_t result = LZ4F_flush(longToCContext(readable_context), availableDstBuffer, dstSize, NULL);
   if (LZ4F_isError(result)) {
     returnError(env, errorResult, result);
